@@ -1,5 +1,5 @@
 #== RETRIEVE HMR2 LIST OF GENES ==#
-#setwd("~/Dropbox/PhD/15 - CRISPR X/CancerAnalysis")
+setwd("~/Dropbox/PhD/15 - CRISPR X/CancerAnalysis")
 source(file = 'CRISPR_Cancer/src/getHMRgenes.R') #Load list of genes in HMR2 GEM
 HMR_ECmatrix <- getHMRgenes()
 HMR_ECmatrix <- HMR_ECmatrix[,2]
@@ -45,6 +45,7 @@ boxplot(PurityCPE, col="grey58", medcol="black", whiskcol="black", staplecol="bl
 
       
 # 3. Mutations Screening ==#
+  #3.1 Per Cancer Types   
 
 Purity_threshold = 0.8 #Filtering patients with a CPE < 0.8
 ImpactMatrix <- list()
@@ -54,17 +55,17 @@ colnames(study_tab) <- rownames(PurityMatrix)
 for(i in 1:length(PurityMatrix[,1])){
   Spec_Matrix         <- PurityTable[which(PurityTable[,2] == rownames(PurityMatrix)[i] # Retrieve only patients from the study 
                     & as.numeric(gsub(",", ".", gsub("\\.", "",PurityTable[,3]))) >= Purity_threshold),] # And with a CPE >= threshold  
-  if(length(Spec_Matrix[,1]) <= 360){                                                   # Filter study with less than 400 patients having <0.8 CPE
+  if(length(Spec_Matrix[,1]) <= 360){                                                   # Filter study with less than 360 patients having <0.8 CPE
     next
   }
   maf                 <- GDCquery_Maf(rownames(PurityMatrix)[i], pipelines = 'mutect2') # Retrieve mutation annotation file (MAF) from Genomic Data Commons (GDC)
-  #indexPatient <- unlist(lapply(Spec_Matrix[,1] , function(x) which(x == substr(maf$Tumor_Sample_Barcode, 1, 16)))) # Filter the maf matrix for only patients matching the Spec_Matrix
+  
   
   for(k in 1:length(HMR_ECmatrix)){
     indexes_gene      <- which(maf$Hugo_Symbol == HMR_ECmatrix[k])
     impacts_gene      <- maf[indexes_gene,]$IMPACT
     if(length(impacts_gene) > 0){
-      study_tab[k,i] <- length(which(impacts_gene == "HIGH"))/(length(Spec_Matrix[,1])) #% of the mutation in the total number of sample
+      study_tab[k,i] <- length(which(impacts_gene == "HIGH"))/(length(Spec_Matrix[,1])) #% of the HIGH mutation in the total number of sample
                        #c(length(which(impacts_gene == "LOW")),
                        # length(which(impacts_gene == "MODIFIER")),
                        # length(which(impacts_gene == "MODERATE")),
@@ -76,13 +77,13 @@ for(i in 1:length(PurityMatrix[,1])){
 # 4. Plot #
 library(pheatmap)
 col.pal <- RColorBrewer::brewer.pal(3, "Reds")
-map <- pheatmap(study_tab,
+map <- pheatmap(study_tab[,1:3],
          cluster_cols = T,
          color = col.pal, 
          fontsize = 6.5,
          fontsize_row=6, 
          fontsize_col = 6)#,
-pheatmap(study_tab[map$tree_row$order,][1:50,],
+pheatmap(study_tab[map$tree_row$order,][1:50,1:4],
         cluster_cols = T,
         color = col.pal, 
         fontsize = 6.5,
@@ -90,8 +91,7 @@ pheatmap(study_tab[map$tree_row$order,][1:50,],
         fontsize_col = 6)
 
 
-#==  ALL PATIENTS WITH A CERTAIN CPE ==#
-
+  # 3.2 Per Patients #
 
 Purity_threshold = 0.8 #Filtering patients with a CPE < 0.8
 ImpactMatrix <- list()
@@ -101,33 +101,19 @@ colnames(study_tab) <- rownames(PurityMatrix)#c("LOW","MODIFIER","MODERATE","HIG
 for(i in 1:length(unique(PurityTable[,2]))){
   maf                 <- GDCquery_Maf(rownames(PurityMatrix)[i], pipelines = 'mutect2') # Retrieve mutation annotation file (MAF) from Genomic Data Commons (GDC)
   Spec_Matrix         <- PurityTable[which(PurityTable[,2] == rownames(PurityMatrix)[i] # Retrieve only patients from the study 
-                                           & as.numeric(gsub(",", ".", gsub("\\.", "",PurityTable[,3]))) >= Purity_threshold),] # And with a CPE >= threshold  
+                                           & as.numeric(gsub(",", ".", gsub("\\.", "",PurityTable[,3]))) >= Purity_threshold),] # And with a CPE >= threshold 
   
-  #  study_tab           <- matrix(0,nrow=length(HMR_ECmatrix), ncol=4)                    # Matrix with the mutation impact from each HMR gene 
-  #  rownames(study_tab) <- HMR_ECmatrix
-  #  colnames(study_tab) <- namesOcancer#c("LOW","MODIFIER","MODERATE","HIGH")             # Different types of Impact established
-  indexPatient        <- 0
-  for (j in 1:length(Spec_Matrix[,1])){
-    indexPatient <- c(indexPatient,which(substr(maf$Tumor_Sample_Barcode, 1, 16) == Spec_Matrix[j,1]))  # Filter the maf matrix for only patients matching the Spec_Matrix (slow way)
-  }
-  indexPatient <- indexPatient[-1]
+  indexPatient <- unlist(lapply(Spec_Matrix[,1] , function(x) which(x == substr(maf$Tumor_Sample_Barcode, 1, 16)))) # Filter the maf matrix for only patients matching the Spec_Matrix
   newMaf       <- maf[indexPatient,]
   for(k in 1:length(HMR_ECmatrix)){
     indexes_gene      <- which(newMaf$Hugo_Symbol == HMR_ECmatrix[k])
     impacts_gene      <- newMaf[indexes_gene,]$IMPACT
     if(length(impacts_gene) > 0){
       study_tab[k,i] <- length(which(impacts_gene == "HIGH"))/(length(Spec_Matrix[,1]))
-      #c(length(which(impacts_gene == "LOW")),
-      # length(which(impacts_gene == "MODIFIER")),
-      # length(which(impacts_gene == "MODERATE")),
-      # length(which(impacts_gene == "HIGH")))
     }
   }
-  #name_file <- paste0(rownames(PurityMatrix)[i],".csv")
-  #write.csv(study_tab,file=name_file)
   ImpactMatrix[[i]] <- study_tab
 }     
-#save(ImpactMatrix, file = "ImpacMat_400_CPE8.rda")
 
 ## Incidence ##
 library(readxl)
