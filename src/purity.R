@@ -115,6 +115,7 @@ for(i in 1:length(unique(PurityTable[,2]))){
   ImpactMatrix[[i]] <- study_tab
 }     
 
+study_tab <- 
 ## Incidence ##
 library(readxl)
 #Incidence <- read_excel("~/Dropbox/PhD/15 - CRISPR X/CancerAnalysis/Annotations/Incidence.xlsx")

@@ -1,13 +1,15 @@
+setwd("~/Dropbox/PhD/15 - CRISPR X/CancerAnalysis")
 library('TCGAbiolinks')
 library('readxl')
 library('lattice')
 library('RColorBrewer')
-frequent_mutations100 <- as.matrix(read_excel("data/frequent_mutations100.xlsx")) #Top Mutations found in STAD cancer
-xylt2_3cancers        <- as.matrix(read_excel("data/xylt2-3cancers.xlsx"))        #xylt2 patients for 3 cancers
-mvk_3cancers          <- as.matrix(read_excel("data/mvk-3cancers.xlsx"))          #mvk patients for 3 cancers
+#frequent_mutations100 <- as.matrix(read_excel("CRISPR_Cancer/data/frequent_mutations100.xlsx")) #Top Mutations found in STAD cancer
+xylt2_3cancers        <- as.matrix(read_excel("CRISPR_Cancer/data/xylt2-3cancers.xlsx"))        #xylt2 patients for 3 cancers
+mvk_3cancers          <- as.matrix(read_excel("CRISPR_Cancer/data/mvk-3cancers.xlsx"))          #mvk patients for 3 cancers
 cancer_types <- c('COAD','STAD','UCEC') #The 3 cancers in question
 
 #MAKE BINARY MATRIX
+ListCancer <- list()
 for(i in 1:length(cancer_types)){
   maf            <- GDCquery_Maf(cancer_types[i], pipelines = 'mutect2')
   patient_list   <- unique(substr(maf$Tumor_Sample_Barcode,1,12)) #extract the 12 first character of Tumor Sample Barcode
@@ -18,6 +20,7 @@ for(i in 1:length(cancer_types)){
     gene_inv <- which(patient_list[j] == substr(maf$Tumor_Sample_Barcode,1,12)) #retrieve index of the genes mutated for patient j 
     patient_matrix[which(unique(frequent_mutations100[,3]) %in% maf$Hugo_Symbol[gene_inv]),j] <- 1 #if patient has top frequent gene, then 1
   }
+  ListCancer[[i]] <- patient_matrix
 }
 
 #LEVEL PLOT#
@@ -139,3 +142,96 @@ laml.pancan = pancanComparision(mutsigResults = mafmutsig, qval = 0.1,
                                label = 1, normSampleSize = TRUE)
 
 
+
+
+#Histogram Distribution of Xylt2#
+matrixHist <- matrix(0,nrow = 10,ncol=3)
+colnames(matrixHist) <- cancer_types
+rownames(matrixHist) <- c("0","1-5","6-10","11-15","16-20","21-25","26-30","31-35","36-40",">41")
+
+for(j in 1:length(ListCancer)){
+  #whereisXylt <- which(colnames(ListCancer[[j]]) %in% xylt2_3cancers[,1] == TRUE)
+  whereisTP53 <- which(ListCancer[[j]][which(rownames(ListCancer[[j]]) == "BRAF"),] == 1)
+  #patient_matrix2 <- ListCancer[[j]][,whereisXylt]
+  patient_matrix2 <- ListCancer[[j]][,whereisTP53]
+  for(k in 1:length(patient_matrix2[1,])){
+    if(sum(patient_matrix2[,k]) == 0 ){
+      matrixHist[1,j] <- matrixHist[1,j]+1
+    }
+    if(sum(patient_matrix2[,k]) > 0 && sum(patient_matrix2[,k]) < 6){
+      matrixHist[2,j] <- matrixHist[2,j]+1
+    }
+    if(sum(patient_matrix2[,k]) > 5 && sum(patient_matrix2[,k]) < 11){
+      matrixHist[3,j] <- matrixHist[3,j]+1
+    }
+    if(sum(patient_matrix2[,k]) > 10 && sum(patient_matrix2[,k]) < 16){
+      matrixHist[4,j] <- matrixHist[4,j]+1
+    }
+    if(sum(patient_matrix2[,k]) > 15 && sum(patient_matrix2[,k]) < 21){
+      matrixHist[5,j] <- matrixHist[5,j]+1
+    }
+    if(sum(patient_matrix2[,k]) > 20 && sum(patient_matrix2[,k]) < 26){
+      matrixHist[6,j] <- matrixHist[6,j]+1
+    }
+    if(sum(patient_matrix2[,k]) > 25 && sum(patient_matrix2[,k]) < 31){
+      matrixHist[7,j] <- matrixHist[7,j]+1
+    }
+    if(sum(patient_matrix2[,k]) > 30 && sum(patient_matrix2[,k]) < 36){
+      matrixHist[8,j] <- matrixHist[8,j]+1
+    }
+    if(sum(patient_matrix2[,k]) > 35 && sum(patient_matrix2[,k]) < 41){
+      matrixHist[9,j] <- matrixHist[9,j]+1
+    }
+    if(sum(patient_matrix2[,k]) > 41){
+      matrixHist[10,j] <- matrixHist[10,j]+1
+    }
+  }
+}
+
+mtrxou <- matrix("X=0",nrow=length(test[1,]),ncol=2)
+
+test <- cbind(ListCancer[[1]],ListCancer[[2]],ListCancer[[3]])
+mtrxou[which(colnames(test) %in% xylt2_3cancers[,1] == TRUE),1] <- "X=1"  
+mtrxou[1:length(ListCancer[[1]][1,]),2] <- "COAD"
+mtrxou[length(ListCancer[[1]][1,])+1:(length(ListCancer[[1]][1,])+1)+(length(ListCancer[[2]][1,])),2] <- "STAD"
+mtrxou[837:1366,2] <- "UCEC"
+rownames(mtrxou) <- colnames(test)
+annotation_col <- data.frame(
+  Patient = mtrxou[,1],
+  Cancer = mtrxou[,2])
+
+mtrxou2 <- matrix(0, nrow=length(test[,1]))
+mtrxou2[which(rownames(test) == "XYLT2"),] = "XYLT2"
+annotation_row <- data.frame(
+  GOI = mtrxou2)
+rownames(annotation_row) <- rownames(test)
+col.pal <- brewer.pal(9, "Blues")
+pheatmap(t(test),
+         cluster_row = T,
+         cluster_cols = T,
+         annotation_col = annotation_col,
+         annotation_row = annotation_row,
+         #annotation_colors = rainbow(1:1000),
+         show_colnames = F,
+         color = col.pal, 
+         #fontsize = 6.5,
+         fontsize_row=5, 
+         fontsize_col = 1,gaps_col=3)
+
+col_groups <- substr(colnames(mat), 1, 1)
+
+
+annotation_col <- data.frame()
+
+
+
+
+pheatmap(test,
+         #cluster_row = T,
+         #cluster_cols = F,
+         #annotation_row = xylt2_3cancers[,1],
+         # annotation_row = annotation_row,
+         color = col.pal, 
+         fontsize = 6.5,
+         fontsize_row=6, 
+         fontsize_col = 6)#,
