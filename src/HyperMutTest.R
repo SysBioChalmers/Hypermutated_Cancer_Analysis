@@ -87,8 +87,8 @@ col.pal <- RColorBrewer::brewer.pal(9, "Blues")
 pheatmap(patient_matrix2,
          cluster_row = T,
          #cluster_cols = F,
-        # annotation_col = annotation_col,
-        # annotation_row = annotation_row,
+         #annotation_col = annotation_col,
+         #annotation_row = annotation_row,
          color = col.pal, 
          fontsize = 6.5,
          fontsize_row=6, 
@@ -188,25 +188,25 @@ for(j in 1:length(ListCancer)){
   }
 }
 
-mtrxou <- matrix("X=0",nrow=length(test[1,]),ncol=2)
+mtrxforannot <- matrix("X=0",nrow=length(CombinedCancer[1,]),ncol=2) #matrix for annotation
 
-test <- cbind(ListCancer[[1]],ListCancer[[2]],ListCancer[[3]])
-mtrxou[which(colnames(test) %in% xylt2_3cancers[,1] == TRUE),1] <- "X=1"  
-mtrxou[1:length(ListCancer[[1]][1,]),2] <- "COAD"
-mtrxou[length(ListCancer[[1]][1,])+1:(length(ListCancer[[1]][1,])+1)+(length(ListCancer[[2]][1,])),2] <- "STAD"
-mtrxou[837:1366,2] <- "UCEC"
-rownames(mtrxou) <- colnames(test)
+CombinedCancer <- cbind(ListCancer[[1]],ListCancer[[2]],ListCancer[[3]]) #combine all 3 cancer
+mtrxforannot[which(colnames(CombinedCancer) %in% mvk_3cancers[,1] == TRUE),1] <- "X=1"  #which patients are the G529 patient
+mtrxforannot[1:length(ListCancer[[1]][1,]),2] <- "COAD" #which patients are part of COAD cancer
+mtrxforannot[length(ListCancer[[1]][1,])+1:(length(ListCancer[[1]][1,])+1)+(length(ListCancer[[2]][1,])),2] <- "STAD"
+mtrxforannot[837:1366,2] <- "UCEC"
+rownames(mtrxforannot) <- colnames(CombinedCancer) 
 annotation_col <- data.frame(
-  Patient = mtrxou[,1],
-  Cancer = mtrxou[,2])
+  Patient = mtrxforannot[,1],
+  Cancer = mtrxforannot[,2])
 
-mtrxou2 <- matrix(0, nrow=length(test[,1]))
-mtrxou2[which(rownames(test) == "XYLT2"),] = "XYLT2"
+mtrxforannot2 <- matrix(0, nrow=length(CombinedCancer[,1]))
+mtrxforannot2[which(rownames(CombinedCancer) == "MVK"),] = "MVK"
 annotation_row <- data.frame(
-  GOI = mtrxou2)
-rownames(annotation_row) <- rownames(test)
+  GOI = mtrxforannot2)
+rownames(annotation_row) <- rownames(CombinedCancer)
 col.pal <- brewer.pal(9, "Blues")
-pheatmap(t(test),
+pheatmap(CombinedCancer,
          cluster_row = T,
          cluster_cols = T,
          annotation_col = annotation_col,

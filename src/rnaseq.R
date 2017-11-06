@@ -3,8 +3,8 @@ library("ggplot2")
 library("SummarizedExperiment")
 library("magrittr")
 library("ggpubr")
-
-AllPatients <- read.table(file = '../data/Allpatients.tsv',sep = '\t', header = TRUE) #Patients with G529 mutations
+setwd("~/Dropbox/PhD/15 - CRISPR X/CancerAnalysis")
+AllPatients <- read.table(file = 'CRISPR_Cancer/data/Allpatients.tsv',sep = '\t', header = TRUE) #Patients with G529 mutations
 AllPatients <- AllPatients[which(AllPatients[,2] == "Stomach"),] #Select only COAD patients
 
 # Query platform Illumina HiSeq with a list of barcode 
@@ -32,18 +32,29 @@ data$shortLetterCode <- relevel(factor(unlist(data$shortLetterCode)), ref="NT") 
 df <- data[,!is.na(data$primary_site)]
 
 RNAmat <- assay(data,"raw_count") # or BRCAMatrix <- assay(BRCARnaseqSE,"raw_count")
-IndexofXylt1 <- which(rownames(RNAmat) == "XYLT2|64132") #find index of XYLT2
-IndexofXylt2 <- which(rownames(RNAmat) == "XYLT1|64131") #find index of XYLT1
-NewSTADmat <- as.matrix(RNAmat[IndexofXylt1:IndexofXylt2,]) #Retrieve XYLT1 and XYLT2 RNA seq data 
+
+
+##== GAG RETRIEVAL ==##
+GAG.annot  <- getGAGgenes()
+GAG.annot  <- GAG.annot[-which(duplicated(GAG.annot[,4]) == TRUE),]
+GAG_13     <- paste0(GAG.annot[,3],"|",GAG.annot[,1]) #combuine column 3 and 1 in order to match the RNAseq matrix, XYLT2|64132 
+IndexOfGAG <- sapply(GAG_13, function(x) which(rownames(RNAmat) == x))#find index of XYLT2
+GAG_13 <- cbind(GAG_13,0) #Dirty for loop to retrieve the index of the GAG genes in the matrix
+for(i in 1:length(GAG_13[,1])){
+  GAG_13[i,2] <- which(GAG_13[i,1] == rownames(RNAmat))[1]
+}
+GAG_13 <- GAG_13[-(which(is.na(GAG_13[,2]) == TRUE)),] #Remove genes with no RNAseq data 
+
+NewSTADmat <- as.matrix(RNAmat[as.numeric(GAG_13[,2]),]) #Extract RNA of the GAG genes
 
 NewSTADmat_TP <- NewSTADmat[,-which(substr(data$shortLetterCode, 1, 12) == "NT")] #create a matrix without NT samples
 
 for (i in 1:length(AllPatients[,1])){ # remove patients carrying G529 mutation from the cancer study (poorly coded)
-  indexofpatient <- which(rownames(AllPatients)[i] == substr(colnames(NewSTADmat_TP),1,12))
+  indexofpatient <- which(rownames(AllPatients)[i] == substr(colnames(NewSTADmat),1,12))
   if (length(indexofpatient) == 0){
     next
   }
-  NewSTADmat_TP  <- NewSTADmat_TP[,-indexofpatient] 
+  NewSTADmat_TP  <- NewSTADmat[,-indexofpatient] 
 }
 
 corrr <- cor.test(NewSTADmat_TP[1,], NewSTADmat_TP[2,], 
@@ -53,7 +64,7 @@ corrr <- cor.test(NewSTADmat_TP[1,], NewSTADmat_TP[2,],
 NewSTADmat_G529 <- NewSTADmat[,-which(substr(data$shortLetterCode, 1, 12) == "NT")] #create a matrix without NT samples
 indxG529 <- integer(0)
 for (i in 1:length(AllPatients[,1])){ 
-  indexofpatient <- which(rownames(AllPatients)[i] == substr(colnames(NewSTADmat_TP),1,12))
+  indexofpatient <- which(rownames(AllPatients)[i] == substr(colnames(NewSTADmat),1,12))
   if (length(indexofpatient) == 0){
     next
   }
@@ -61,5 +72,17 @@ for (i in 1:length(AllPatients[,1])){
   #NewSTADmat_TP  <- NewSTADmat_TP[,-indexofpatient] 
 }
 NewSTADmat_G529 <- NewSTADmat[,indxG529]
-corrr2 <- cor.test(NewSTADmat_G529[1,], NewSTADmat_G529[2,], 
+
+library(pheatmap)
+col.pal <- RColorBrewer::brewer.pal(9, "Reds")
+map <- pheatmap(NewSTADmat_G529[,1:20],
+                cluster_cols = T,
+                color = col.pal, 
+                fontsize = 6.5,
+                fontsize_row=6, 
+                fontsize_col = 6)#,
+
+
+boxplot(NewSTADmat[1,])
+corrr2 <- cor.test(NewSTADmat_G529[1:10,], NewSTADmat_TP[1:10,], 
                   method = "pearson")
