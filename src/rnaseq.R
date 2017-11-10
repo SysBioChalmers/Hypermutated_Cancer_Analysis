@@ -5,10 +5,10 @@ library("magrittr")
 library("ggpubr")
 setwd("~/Dropbox/PhD/15 - CRISPR X/CancerAnalysis")
 AllPatients <- read.table(file = 'CRISPR_Cancer/data/Allpatients.tsv',sep = '\t', header = TRUE) #Patients with G529 mutations
-AllPatients <- AllPatients[which(AllPatients[,2] == "Stomach"),] #Select only COAD patients
+AllPatients <- AllPatients[which(AllPatients[,2] == "Colorectal"),] #Select only COAD patients
 
 # Query platform Illumina HiSeq with a list of barcode 
-query <- GDCquery(project = "TCGA-STAD", 
+query <- GDCquery(project = "TCGA-COAD", 
                   data.category = "Gene expression",
                   data.type = "Gene expression quantification",
                   experimental.strategy = "RNA-Seq",
@@ -33,6 +33,8 @@ df <- data[,!is.na(data$primary_site)]
 
 RNAmat <- assay(data,"raw_count") # or BRCAMatrix <- assay(BRCARnaseqSE,"raw_count")
 
+#equifax <- list()
+#equifax[[2]] <- RNAmat[12642,]
 
 ##== GAG RETRIEVAL ==##
 GAG.annot  <- getGAGgenes()
@@ -75,7 +77,8 @@ NewSTADmat_G529 <- NewSTADmat[,indxG529]
 
 library(pheatmap)
 col.pal <- RColorBrewer::brewer.pal(9, "Reds")
-map <- pheatmap(NewSTADmat_G529[,1:20],
+pairheatmap(log1p(NewSTADmat_G529), log1p(NewSTADmat_TP[,1:100]))
+map <- pheatmap((NewSTADmat_TP[,1:20]+0.001),
                 cluster_cols = T,
                 color = col.pal, 
                 fontsize = 6.5,
@@ -86,3 +89,31 @@ map <- pheatmap(NewSTADmat_G529[,1:20],
 boxplot(NewSTADmat[1,])
 corrr2 <- cor.test(NewSTADmat_G529[1:10,], NewSTADmat_TP[1:10,], 
                   method = "pearson")
+
+
+
+
+boxplot(equifax,
+        xlab="Cancer types")
+equifax2 <- list();NewRNAmat <- ""
+
+## RNA seq of NT vs TP vs G529 ##
+
+equifax <- list()
+equifax[[1]] <- RNAmat[12642,which(data$shortLetterCode == "NT")]
+equifax[[2]] <- RNAmat[12642,which(data$shortLetterCode == "TP")]
+indexofpatient <- ""
+for (i in 1:length(AllPatients[,1])){ # remove patients carrying G529 mutation from the cancer study (poorly coded)
+  indexofpatient <- c(indexofpatient,which(rownames(AllPatients)[i] == substr(colnames(RNAmat),1,12)))
+  if (length(indexofpatient) == 0){
+    next
+  }
+  #NewRNAmat  <- RNAmat[,indexofpatient] 
+}
+indexofpatient <- indexofpatient[-1]
+equifax[[3]] <- RNAmat[12642,-as.numeric(indexofpatient)]
+equifax[[4]] <- RNAmat[12642,as.numeric(indexofpatient)]
+boxplot(equifax,
+        col="grey")
+
+

@@ -11,7 +11,7 @@ cancer_types <- c('COAD','STAD','UCEC') #The 3 cancers in question
 #MAKE BINARY MATRIX
 ListCancer <- list()
 for(i in 1:length(cancer_types)){
-  maf            <- GDCquery_Maf(cancer_types[i], pipelines = 'mutect2')
+  maf            <- GDCquery_Maf(cancer_types[i], pipelines = 'mutect2',)
   patient_list   <- unique(substr(maf$Tumor_Sample_Barcode,1,12)) #extract the 12 first character of Tumor Sample Barcode
   patient_matrix <- matrix(0, ncol = length(patient_list), nrow = length(unique(frequent_mutations100[,3]))) #Binary matrix
   rownames(patient_matrix) <- unique(frequent_mutations100[,3]) #row = unique top frequent gene 
